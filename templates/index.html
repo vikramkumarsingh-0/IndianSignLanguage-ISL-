@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hand Gesture Detection</title>
+    <style>
+        body {
+            text-align: center;
+            font-family: Arial, sans-serif;
+        }
+        #video-container {
+            border: 1px solid black;
+            width: 640px;
+            height: 480px;
+            margin: 0 auto;
+        }
+        #gesture-output {
+            font-size: 20px;
+            margin-top: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 20px 10px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Hand Gesture Detection</h1>
+    <div id="video-container">
+        <img id="videoFeed" src="{{ url_for('video_feed') }}" alt="Video feed">
+    </div>
+    <div id="gesture-output">Detected Gesture: None</div>
+
+    <button onclick="startCamera()">Start Camera to Detect</button>
+    <button onclick="stopCamera()">Stop</button>
+
+    <script>
+        function startCamera() {
+            fetch('/start_camera')
+                .then(response => response.text())
+                .then((data) => {
+                    console.log("Camera started:", data);
+                    document.getElementById('videoFeed').src = "/video_feed";
+                    updateGesture();
+                })
+                .catch(error => console.error("Error starting camera:", error));
+        }
+
+        function stopCamera() {
+            fetch('/stop_camera')
+                .then(response => response.text())
+                .then((data) => {
+                    console.log("Camera stopped:", data);
+                    document.getElementById('videoFeed').src = "";  // Clear the video feed
+                    clearInterval(gestureInterval);  // Stop gesture updates
+                })
+                .catch(error => console.error("Error stopping camera:", error));
+        }
+
+        let gestureInterval;
+        function updateGesture() {
+            gestureInterval = setInterval(() => {
+                fetch('/get_gesture')
+                    .then(response => response.json())
+                    .then(data => {
+                        document.getElementById('gesture-output').textContent = 'Detected Gesture: ' + data.gesture;
+                    })
+                    .catch(error => console.error("Error fetching gesture:", error));
+            }, 1000);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,83 @@
+import cv2
+from cvzone.HandTrackingModule import HandDetector
+from cvzone.ClassificationModule import Classifier
+import numpy as np
+import math
+
+class HandGestureRecognizer:
+    def __init__(self, model_path, labels_path, max_hands=1, img_size=300, offset=20):
+        self.cap = cv2.VideoCapture(0)
+        self.detector = HandDetector(maxHands=max_hands)
+        self.classifier = Classifier(model_path, labels_path)
+        self.offset = offset
+        self.img_size = img_size
+        self.labels = ["bad", "call me", "good", "heart", "hello", "i love you", "ok", "please", "thank you"]
+
+    def get_hand_bbox(self, hands):
+        hand = hands[0]
+        return hand['bbox']
+
+    def process_hand_image(self, img, bbox):
+        x, y, w, h = bbox
+        img_white = np.ones((self.img_size, self.img_size, 3), np.uint8) * 255
+        img_crop = img[y - self.offset:y + h + self.offset, x - self.offset:x + w + self.offset]
+        aspect_ratio = h / w
+
+        if aspect_ratio > 1:
+            img_white = self._resize_height_dominant(img_crop, h, w)
+        else:
+            img_white = self._resize_width_dominant(img_crop, h, w)
+
+        return img_white
+
+    def _resize_height_dominant(self, img_crop, h, w):
+        """Resize the image when the height is dominant."""
+        k = self.img_size / h
+        w_cal = math.ceil(k * w)
+        img_resize = cv2.resize(img_crop, (w_cal, self.img_size))
+        w_gap = math.ceil((self.img_size - w_cal) / 2)
+        img_white = np.ones((self.img_size, self.img_size, 3), np.uint8) * 255
+        img_white[:, w_gap:w_cal + w_gap] = img_resize
+        return img_white
+
+    def _resize_width_dominant(self, img_crop, h, w):
+        """Resize the image when the width is dominant."""
+        k = self.img_size / w
+        h_cal = math.ceil(k * h)
+        img_resize = cv2.resize(img_crop, (self.img_size, h_cal))
+        h_gap = math.ceil((self.img_size - h_cal) / 2)
+        img_white = np.ones((self.img_size, self.img_size, 3), np.uint8) * 255
+        img_white[h_gap:h_cal + h_gap, :] = img_resize
+        return img_white
+
+    def classify_gesture(self, img_white):
+        """Classify the gesture using the model."""
+        prediction, index = self.classifier.getPrediction(img_white, draw=False)
+        return prediction, index
+
+    def draw_output(self, img, bbox, index):
+        """Draw the output on the image."""
+        x, y, w, h = bbox
+        cv2.rectangle(img, (x - self.offset, y - self.offset - 70), (x - self.offset + 400, y - self.offset + 60 - 50), (0, 255, 0), cv2.FILLED)
+        cv2.putText(img, self.labels[index], (x, y - 30), cv2.FONT_HERSHEY_COMPLEX, 2, (0, 0, 0), 2)
+        cv2.rectangle(img, (x - self.offset, y - self.offset), (x + w + self.offset, y + h + self.offset), (0, 255, 0), 4)
+
+    def run(self):
+        while True:
+            success, img = self.cap.read()
+            if not success:
+                break
+            img_output = img.copy()
+            hands, img = self.detector.findHands(img)
+            if hands:
+                bbox = self.get_hand_bbox(hands)
+                img_white = self.process_hand_image(img, bbox)
+                prediction, index = self.classify_gesture(img_white)
+                self.draw_output(img_output, bbox, index)
+
+            cv2.imshow('Image', img_output)
+            cv2.waitKey(1)
+
+if __name__ == "__main__":
+    recognizer = HandGestureRecognizer("model/keras_model.h5", "model/labels.txt")
+    recognizer.run()

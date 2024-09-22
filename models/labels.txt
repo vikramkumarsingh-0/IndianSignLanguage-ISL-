@@ -1,0 +1,9 @@
+0 bad
+1 call me
+2 good
+3 heart
+4 hello
+5 i love you
+6 ok
+7 please
+8 thank you
